@@ -78,44 +78,47 @@ M.list_tabs = function(opts)
 		table.insert(res, { file_names, file_paths, file_ids, window_ids, tid })
 	end
 	pickers
-		.new(opts, {
-			prompt_title = 'Tabs',
-			finder = finders.new_table {
-				results = res,
-				entry_maker = function(entry)
-					local entry_string = opts.entry_formatter(entry[5], entry[3], entry[1], entry[2])
-					return {
-						value = entry,
-						path = entry[2][1],
-						display = entry_string,
-						ordinal = entry_string,
-					}
-				end,
-			},
-			sorter = conf.generic_sorter {},
-			attach_mappings = function(prompt_bufnr, map)
-				actions.select_default:replace(function()
-					actions.close(prompt_bufnr)
-					local selection = action_state.get_selected_entry()
-					vim.api.nvim_set_current_tabpage(selection.value[5])
-				end)
-				map('i', opts.close_tab_shortcut, function()
-					local current_picker = action_state.get_current_picker(prompt_bufnr)
-					local current_entry = action_state:get_selected_entry()
-					if vim.api.nvim_get_current_tabpage() == current_entry.value[5] then
-						print 'You cannot close the currently visible tab :('
-						return
-					end
-					current_picker:delete_selection(function(selection)
-						for _, wid in ipairs(selection.value[4]) do
-							vim.api.nvim_win_close(wid, false)
-						end
+		.new(
+			opts,
+			require('telescope.themes')[opts.theme and 'get_' .. opts.theme or 'get_dropdown'] {
+				prompt_title = 'Tabs',
+				finder = finders.new_table {
+					results = res,
+					entry_maker = function(entry)
+						local entry_string = opts.entry_formatter(entry[5], entry[3], entry[1], entry[2])
+						return {
+							value = entry,
+							path = entry[2][1],
+							display = entry_string,
+							ordinal = entry_string,
+						}
+					end,
+				},
+				sorter = conf.generic_sorter {},
+				attach_mappings = function(prompt_bufnr, map)
+					actions.select_default:replace(function()
+						actions.close(prompt_bufnr)
+						local selection = action_state.get_selected_entry()
+						vim.api.nvim_set_current_tabpage(selection.value[5])
 					end)
-				end)
-				return true
-			end,
-			previewer = opts.show_preview and conf.file_previewer {} or nil,
-		})
+					map('i', opts.close_tab_shortcut, function()
+						local current_picker = action_state.get_current_picker(prompt_bufnr)
+						local current_entry = action_state:get_selected_entry()
+						if vim.api.nvim_get_current_tabpage() == current_entry.value[5] then
+							print 'You cannot close the currently visible tab :('
+							return
+						end
+						current_picker:delete_selection(function(selection)
+							for _, wid in ipairs(selection.value[4]) do
+								vim.api.nvim_win_close(wid, false)
+							end
+						end)
+					end)
+					return true
+				end,
+				previewer = opts.show_preview and conf.file_previewer {} or nil,
+			}
+		)
 		:find()
 end
 
