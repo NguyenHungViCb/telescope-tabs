@@ -29,7 +29,7 @@ local M = {
 }
 
 local default_conf = {
-	entry_formatter = function(tab_id, buffer_ids, file_names, file_paths)
+	entry_formatter = function(tab_id, index, buffer_ids, file_names, file_paths)
 		local entry_string = table.concat(file_names, ', ')
 		return string.format('%d: %s', tab_id, entry_string)
 	end,
@@ -58,10 +58,9 @@ M.go_to_previous = function()
 	vim.api.nvim_set_current_tabpage(last_index)
 end
 
-M.list_tabs = function(opts)
-	opts = vim.tbl_deep_extend('force', M.conf, opts or {})
+M.list = function()
 	local res = {}
-	for _, tid in ipairs(vim.api.nvim_list_tabpages()) do
+	for index, tid in ipairs(vim.api.nvim_list_tabpages()) do
 		local file_names = {}
 		local file_paths = {}
 		local file_ids = {}
@@ -70,22 +69,29 @@ M.list_tabs = function(opts)
 			local bid = vim.api.nvim_win_get_buf(wid)
 			local path = vim.api.nvim_buf_get_name(bid)
 			local file_name = vim.fn.fnamemodify(path, ':t')
-			table.insert(file_names, file_name)
+			if file_name then
+				table.insert(file_names, file_name)
+			end
 			table.insert(file_paths, path)
 			table.insert(file_ids, bid)
 			table.insert(window_ids, wid)
 		end
-		table.insert(res, { file_names, file_paths, file_ids, window_ids, tid })
+		table.insert(res, { file_names, file_paths, file_ids, window_ids, tid, index })
 	end
+	return res
+end
+
+M.list_tabs = function(opts)
+	opts = vim.tbl_deep_extend('force', M.conf, opts or {})
 	pickers
 		.new(
 			opts,
 			require('telescope.themes')[opts.theme and 'get_' .. opts.theme or 'get_dropdown'] {
 				prompt_title = 'Tabs',
 				finder = finders.new_table {
-					results = res,
+					results = M.list(),
 					entry_maker = function(entry)
-						local entry_string = opts.entry_formatter(entry[5], entry[3], entry[1], entry[2])
+						local entry_string = opts.entry_formatter(entry[5], entry[6], entry[3], entry[1], entry[2])
 						return {
 							value = entry,
 							path = entry[2][1],
@@ -113,6 +119,22 @@ M.list_tabs = function(opts)
 								vim.api.nvim_win_close(wid, false)
 							end
 						end)
+						current_picker:refresh(
+							finders.new_table {
+								results = M.list(),
+								entry_maker = function(entry)
+									local entry_string =
+										opts.entry_formatter(entry[5], entry[6], entry[3], entry[1], entry[2])
+									return {
+										value = entry,
+										path = entry[2][1],
+										display = entry_string,
+										ordinal = entry_string,
+									}
+								end,
+							},
+							{}
+						)
 					end)
 					return true
 				end,
